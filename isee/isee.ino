@@ -132,7 +132,7 @@ void loop() {
   if (millis() - timer1 >= 20){
     timer1 = millis();
     //move_servos();
-    //husky_lens();
+    husky_lens();
     //touch_sensor();
     run_emotions();
   }
@@ -148,16 +148,22 @@ void loop() {
 // --------------------------------------------------------------------------------- //
 // -------------------------------------- EYES ------------------------------------- //
 // --------------------------------------------------------------------------------- //
-void display_eyes(byte arr[], int hue, bool flirt){
-  if(!flirt){
-    display_eye(arr, hue, true);
-    display_eye(arr, hue, false);
+void display_eyes(byte arr[], int hue, int mode){
+
+  switch(mode){
+    case 1:
+      //normal case (both eyes syncronized)
+      display_eye(arr, hue, true);
+      display_eye(arr, hue, false);
+      break;
+  
+    case 2:
+      //flirt case (only the left eye blinks)
+      display_eye(love, hue, false);
+      display_eye(arr, hue, true);
+      break;
   }
-  else{
-    display_eye(love, hue, false);
-    display_eye(arr, hue, true);
-  }
-   
+
 }
 
 void display_eye(byte arr[], int hue, bool left) {
@@ -181,10 +187,10 @@ void run_emotions(){
 
   switch (emotion) {
     case NEUTRAL:
-      if (millis() % 5000 < 150) display_eyes(blink1, 43, false);
-      else if (millis() % 5000 < 300) display_eyes(blink2, 43, false);
-      else if (millis() % 5000 < 450) display_eyes(blink1, 43, false);
-      else display_eyes(neutral, 43, false);
+      if (millis() % 5000 < 150) display_eyes(blink1, 43, 1);
+      else if (millis() % 5000 < 300) display_eyes(blink2, 43, 1);
+      else if (millis() % 5000 < 450) display_eyes(blink1, 43, 1);
+      else display_eyes(neutral, 43, 1);
 
       if (face_detected) {
         servo1_target = 90.0 + float(face.xCenter - 160) / 320.00 * -50.00;
@@ -192,30 +198,60 @@ void run_emotions(){
       }
       break;
     case OVERWHELMED:
-      display_eyes(overwhelmed, 0, false);
+      display_eyes(overwhelmed, 0, 1);
       break;
       
     case LOVE:
-      if (millis() % 5000 < 150) display_eyes(blink1, 150, true);
-      else if (millis() % 5000 < 300) display_eyes(blink2, 150, true);
-      else if (millis() % 5000 < 450) display_eyes(blink1, 150, true);
-      else display_eyes(love, 150, false);
+      if (millis() % 5000 < 150) display_eyes(blink1, 150, 2);
+      else if (millis() % 5000 < 300) display_eyes(blink2, 150, 2);
+      else if (millis() % 5000 < 450) display_eyes(blink1, 150, 2);
+      else display_eyes(love, 150, 1);
       
       break;
     
     case LISTENING:
-      if (millis() % 5000 < 150) display_eyes(blink1, 85, false);
-      else if (millis() % 5000 < 300) display_eyes(blink2, 85, false);
-      else if (millis() % 5000 < 450) display_eyes(blink1, 85, false);
-      else display_eyes(neutral, 85, false);
+      if (millis() % 5000 < 150) display_eyes(blink1, 85, 1);
+      else if (millis() % 5000 < 300) display_eyes(blink2, 85, 1);
+      else if (millis() % 5000 < 450) display_eyes(blink1, 85, 1);
+      else display_eyes(neutral, 85, 1);
   }
 
   pixels.show();
 }
 
 // --------------------------------------------------------------------------------- //
+// ------------------------------------ CAMERA  ------------------------------------ //
+// --------------------------------------------------------------------------------- //
+void husky_lens() {
+  if (!huskylens.request()) {}
+  else if (!huskylens.available()) {
+    //No face detected
+    face_detected = false;
+  } else {
+    // We loop through all faces received by the HuskyLens. If it's a face that we've learned (ID=1), we will track that face.
+    // If no learned face is on the screen, we take the first face returned (which is the face closest to the center)
+    face_detected = false;
+    int face_index = 0;
+
+    while (huskylens.available()) {
+      HUSKYLENSResult result = huskylens.read();
+      if (result.command == COMMAND_RETURN_BLOCK) {
+//        Serial.println(String() + F("Block:xCenter=") + result.xCenter + F(",yCenter=") + result.yCenter + F(",width=") + result.width + F(",height=") + result.height + F(",ID=") + result.ID);
+        if (face_index == 0 || result.ID == 1) {face = result;  
+        face_index ++;
+        face_detected = true;
+      }
+    }
+//    Serial.println(String() + F("Block:xCenter=") + face.xCenter + F(",yCenter=") + face.yCenter + F(",width=") + face.width + F(",height=") + face.height + F(",ID=") + face.ID);
+    }
+  }
+}
+
+
+// --------------------------------------------------------------------------------- //
 // --------------------------------- COMMUNICATION --------------------------------- //
 // --------------------------------------------------------------------------------- //
+
 void communication() {
   char val = ' ';
   String data = "";
