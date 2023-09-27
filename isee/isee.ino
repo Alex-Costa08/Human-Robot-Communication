@@ -39,6 +39,8 @@ long timer1, timer2, timer3;
 bool pc_connected = false;
 float servo1_target_pc = 90, servo2_target_pc = 90;
 
+int face_count=0, face_temp = 0, t_counter = 0;
+
 // --------------------------------------------------------------------------------- //
 // ---------------------------------- EYE PATTERNS --------------------------------- //
 // --------------------------------------------------------------------------------- //
@@ -110,6 +112,9 @@ void setup() {
   SelectPlayerDevice(0x02);       // Select SD card as the player device.
   SetVolume(0x1E);                // Set the volume, the range is 0x00 to 0x1E.
 
+  SpecifyMusicPlay(1);            //Start the Song for Neutral State
+
+
   // HuskyLens
   Wire.begin();
   while (!huskylens.begin(Wire)) {
@@ -132,7 +137,9 @@ void loop() {
   if (millis() - timer1 >= 20){
     timer1 = millis();
     //move_servos();
-    husky_lens();
+    face_temp = husky_lens();
+    face_counter();
+    state_switching();
     //touch_sensor();
     run_emotions();
   }
@@ -143,6 +150,45 @@ void loop() {
     communication();
   }
 
+}
+
+
+// --------------------------------------------------------------------------------- //
+// -------------------------------------- FACES------------------------------------- //
+// --------------------------------------------------------------------------------- //
+
+//avoid errors when detetcting the number of faces in a room (it has to detect less than 2 faces for more than 3 seconds).
+void face_counter(){
+
+  if(face_count == face_temp){t_counter = 0;}
+
+  else if(face_count < face_temp){face_count = face_temp; t_counter = 0;}
+
+  else{
+    t_counter++;
+    //considering this function is called every 20ms, 50 iteractions is equal to 1 sec.
+    if(t_counter >= 150){face_count = face_temp; t_counter = 0;}
+  }
+
+}
+
+//After we have all the sounds, we need to change the indexes of the function to play the correct ones!!!
+void state_switching(){
+  //right now it will never go to the LISTENING state bcs we are not using the sound.
+  switch (emotion) {
+    case  NEUTRAL:
+        if(face_count > 1){emotion = LOVE;  Serial.println("Neutral -> Love"); SpecifyMusicPlay(2);}
+        break;
+        
+    case LOVE:
+        if(face_count < 2){emotion = NEUTRAL; Serial.println("Love -> Neutral"); SpecifyMusicPlay(1);}
+        break;
+
+    case LISTENING:
+        if(face_count < 2){emotion = NEUTRAL;SpecifyMusicPlay(1);}
+        break;
+  }
+  
 }
 
 // --------------------------------------------------------------------------------- //
@@ -202,9 +248,9 @@ void run_emotions(){
       break;
       
     case LOVE:
-      if (millis() % 5000 < 150) display_eyes(blink1, 150, 2);
-      else if (millis() % 5000 < 300) display_eyes(blink2, 150, 2);
-      else if (millis() % 5000 < 450) display_eyes(blink1, 150, 2);
+      if (millis() % 2500 < 150) display_eyes(blink1, 150, 2);
+      else if (millis() % 2500 < 300) display_eyes(blink2, 150, 2);
+      else if (millis() % 2500 < 450) display_eyes(blink1, 150, 2);
       else display_eyes(love, 150, 1);
       
       break;
@@ -222,29 +268,32 @@ void run_emotions(){
 // --------------------------------------------------------------------------------- //
 // ------------------------------------ CAMERA  ------------------------------------ //
 // --------------------------------------------------------------------------------- //
-void husky_lens() {
+int husky_lens() {
   if (!huskylens.request()) {}
   else if (!huskylens.available()) {
-    //No face detected
+//    Serial.println(F("No face appears on the screen!"));
     face_detected = false;
   } else {
+//    Serial.println(F("###########"));
+
     // We loop through all faces received by the HuskyLens. If it's a face that we've learned (ID=1), we will track that face.
     // If no learned face is on the screen, we take the first face returned (which is the face closest to the center)
     face_detected = false;
     int face_index = 0;
-
     while (huskylens.available()) {
       HUSKYLENSResult result = huskylens.read();
       if (result.command == COMMAND_RETURN_BLOCK) {
 //        Serial.println(String() + F("Block:xCenter=") + result.xCenter + F(",yCenter=") + result.yCenter + F(",width=") + result.width + F(",height=") + result.height + F(",ID=") + result.ID);
-        if (face_index == 0 || result.ID == 1) {face = result;  
+        if (face_index == 0 || result.ID == 1) face = result;
         face_index ++;
         face_detected = true;
       }
     }
-//    Serial.println(String() + F("Block:xCenter=") + face.xCenter + F(",yCenter=") + face.yCenter + F(",width=") + face.width + F(",height=") + face.height + F(",ID=") + face.ID);
-    }
+    return face_index;
+//    Serial.println(String() + F("Block:xCenter=") + face.xCenter + F(",yCenter=") + face.yCenter + F(",width=") + face.width + F(",height=") + face.height + F(",ID=") + face.ID);
   }
+
+  return 0;
 }
 
 
