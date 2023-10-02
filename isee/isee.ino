@@ -19,7 +19,7 @@
 SoftwareSerial mp3(2, 3);                     // The MP3 module is connected on pins 2 and 3
 Adafruit_NeoPixel pixels(NUMPIXELS, LED_PIN);
 
-int LED_BRIGHTNESS = 8;  // 0-255
+int LED_BRIGHTNESS = 80;  // 0-255
 
 HUSKYLENS huskylens;
 HUSKYLENSResult face;
@@ -27,7 +27,7 @@ bool face_detected = false;
 bool prev_touch_value = 0;
 
 enum Emotion {NEUTRAL, OVERWHELMED, LOVE, LISTENING};
-Emotion emotion = NEUTRAL;
+Emotion emotion = OVERWHELMED;
 
 Servo servo1, servo2;
 float servo1_pos = 90, servo2_pos = 90;
@@ -114,6 +114,8 @@ void setup() {
 
   SpecifyMusicPlay(1);            //Start the Song for Neutral State
 
+  PlayNext();
+
 
   // HuskyLens
   Wire.begin();
@@ -128,7 +130,7 @@ void setup() {
   servo1.attach(SERVO_PIN_1);
   servo2.attach(SERVO_PIN_2);
   servo1.write(90);
-  servo2.write(90);
+  servo2.write(60);
 }
 
 void loop() {
@@ -136,7 +138,7 @@ void loop() {
   // Ever 20 milliseconds, update the servos
   if (millis() - timer1 >= 20){
     timer1 = millis();
-    //move_servos();
+    move_servos();
     face_temp = husky_lens();
     face_counter();
     state_switching();
@@ -177,16 +179,21 @@ void state_switching(){
   //right now it will never go to the LISTENING state bcs we are not using the sound.
   switch (emotion) {
     case  NEUTRAL:
-        if(face_count > 1){emotion = LOVE;  Serial.println("Neutral -> Love"); SpecifyMusicPlay(2);}
+        if(face_count > 1){emotion = LOVE;  Serial.println("Neutral -> Love"); SpecifyMusicPlay(2); servo2_target = 120;}
+
         break;
         
     case LOVE:
-        if(face_count < 2){emotion = NEUTRAL; Serial.println("Love -> Neutral"); SpecifyMusicPlay(1);}
+        if(face_count < 2){emotion = NEUTRAL; Serial.println("Love -> Neutral"); SpecifyMusicPlay(1); servo2_target = 60;}
         break;
 
     case LISTENING:
-        if(face_count < 2){emotion = NEUTRAL;SpecifyMusicPlay(1);}
+        //if(face_count < 2){emotion = NEUTRAL;SpecifyMusicPlay(1);}
         break;
+
+    case OVERWHELMED:
+      break;
+
   }
   
 }
@@ -238,13 +245,23 @@ void run_emotions(){
       else if (millis() % 5000 < 450) display_eyes(blink1, 43, 1);
       else display_eyes(neutral, 43, 1);
 
-      if (face_detected) {
+      /*if (face_detected) {
         servo1_target = 90.0 + float(face.xCenter - 160) / 320.00 * -50.00;
         servo2_target = 90.0 + float(face.yCenter - 120) / 240.00 * 50.00;
-      }
+      }*/
+
+      if (millis() % 10000 < 2000){servo1_target = 90;servo2_target = 60;}
+      else if (millis() % 10000 < 3000) servo1_target = 120;
+      else if (millis() % 10000 < 4000) servo1_target = 50;
+      else servo1_target = 90;
+
       break;
     case OVERWHELMED:
       display_eyes(overwhelmed, 0, 1);
+      if (millis() % 600 < 200){servo1_target = 90;servo2_target = 60;}
+      else if (millis() % 600 < 400) {servo1_target = 110;servo2_target = 90;}
+      else {servo1_target = 70;servo2_target = 60;}
+
       break;
       
     case LOVE:
@@ -271,31 +288,59 @@ void run_emotions(){
 int husky_lens() {
   if (!huskylens.request()) {}
   else if (!huskylens.available()) {
-//    Serial.println(F("No face appears on the screen!"));
+  //   Serial.println(F("No face appears on the screen!"));
     face_detected = false;
   } else {
-//    Serial.println(F("###########"));
+  //    Serial.println(F("###########"));
 
-    // We loop through all faces received by the HuskyLens. If it's a face that we've learned (ID=1), we will track that face.
-    // If no learned face is on the screen, we take the first face returned (which is the face closest to the center)
-    face_detected = false;
-    int face_index = 0;
-    while (huskylens.available()) {
-      HUSKYLENSResult result = huskylens.read();
-      if (result.command == COMMAND_RETURN_BLOCK) {
-//        Serial.println(String() + F("Block:xCenter=") + result.xCenter + F(",yCenter=") + result.yCenter + F(",width=") + result.width + F(",height=") + result.height + F(",ID=") + result.ID);
-        if (face_index == 0 || result.ID == 1) face = result;
-        face_index ++;
-        face_detected = true;
-      }
+  // We loop through all faces received by the HuskyLens. If it's a face that we've learned (ID=1), we will track that face.
+  // If no learned face is on the screen, we take the first face returned (which is the face closest to the center)
+  face_detected = false;
+  int face_index = 0;
+  while (huskylens.available()) {
+    HUSKYLENSResult result = huskylens.read();
+    if (result.command == COMMAND_RETURN_BLOCK) {
+      //        Serial.println(String() + F("Block:xCenter=") + result.xCenter + F(",yCenter=") + result.yCenter + F(",width=") + result.width + F(",height=") + result.height + F(",ID=") + result.ID);
+      if (face_index == 0 || result.ID == 1) face = result;
+      face_index ++;
+      face_detected = true;
     }
-    return face_index;
-//    Serial.println(String() + F("Block:xCenter=") + face.xCenter + F(",yCenter=") + face.yCenter + F(",width=") + face.width + F(",height=") + face.height + F(",ID=") + face.ID);
+  }
+  return face_index;
+  //    Serial.println(String() + F("Block:xCenter=") + face.xCenter + F(",yCenter=") + face.yCenter + F(",width=") + face.width + F(",height=") + face.height + F(",ID=") + face.ID);
   }
 
   return 0;
 }
 
+// --------------------------------------------------------------------------------- //
+// ---------------------------------- SERVO MOTORS --------------------------------- //
+// --------------------------------------------------------------------------------- //
+void move_servos(){
+  // We apply some smoothing to the servos and limit the speed
+  // We do this because abrubt movements cause a big spike in current draw
+  // If we are connected to the PC, we use the PC angles. Otherwise we use the angles from the Arduino
+  float servo1_target_ = (pc_connected) ? servo1_target_pc : servo1_target;
+  float servo2_target_ = (pc_connected) ? servo2_target_pc : servo2_target;
+
+  if (abs(servo1_target_ - servo1_pos) < 1) {
+    servo1.write(servo1_target_);
+    servo1_pos = servo1_target_;
+  } else {
+    servo1_speed = constrain(constrain(servo1_target_ - servo1_pos, servo1_speed - 0.1, servo1_speed + 0.1), -1.0, 1.0);
+    servo1_pos += servo1_speed;
+    servo1.write(servo1_pos);
+  }
+
+  if (abs(servo2_target_ - servo2_pos) < 1) {
+    servo2.write(servo2_target_);
+    servo2_pos = servo2_target_;
+  } else {
+    servo2_speed = constrain(constrain(servo2_target_ - servo2_pos, servo2_speed - 0.1, servo2_speed + 0.1), -1.0, 1.0);
+    servo2_pos += servo2_speed;
+    servo2.write(servo2_pos);
+  }
+}
 
 // --------------------------------------------------------------------------------- //
 // --------------------------------- COMMUNICATION --------------------------------- //
@@ -312,6 +357,16 @@ void communication() {
     while ( val != -1);
   }
 
+  /*Serial.println(data);
+  String value;
+  value = data.substring(0, data.indexOf(','));
+  Serial.println(value);
+
+  if (value == "NEUTRAL") emotion = NEUTRAL;
+  if (value == "OVERWHELMED") emotion = OVERWHELMED;
+  if (value == "LISTENING") emotion = LISTENING;
+  if(value == "LOVE") emotion = LOVE;*/
+
   // data is a string of what we received, we will split it into the different values
   // We receive multiple values from our PC as in "123,abc,123,"
   // We can then split this string and extract the values out.
@@ -326,13 +381,6 @@ void communication() {
 
       if (i == 0) servo1_target_pc = value.toInt();
       if (i == 1) servo2_target_pc = value.toInt();
-      if (i == 2) {
-        if (value == "NEUTRAL") emotion = NEUTRAL;
-        if (value == "LOVE") emotion = LOVE;
-        if (value == "OVERWHELMED") emotion = OVERWHELMED;
-        if (value == "LISTENING") emotion = LISTENING;
-      }
-      // If more values are needed, add other lines here, e.g. if (i == 3) ...
     }
   }
 }

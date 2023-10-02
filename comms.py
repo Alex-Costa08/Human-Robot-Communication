@@ -82,7 +82,7 @@ def detect_intent_stream(project_id, session_id, language_code):
     )
     print("Fulfillment text: {}\n".format(query_result.fulfillment_text))
 
-    return query_result.query_text, query_result.fulfillment_text
+    return query_result.query_text, query_result.fulfillment_text, query_result.intent.display_name
 
 def texttospeech(fulfillment, language_code):
 
@@ -114,12 +114,17 @@ ser = serial.Serial('COM9', 115200)  # Replace 'COMX' with your Arduino's port
 
 try:
     while True:
-        query, fulfillment = detect_intent_stream(project_id, session_id, language_code)
-        if query == "hello":
-            texttospeech(fulfillment, language_code)
-            order = "90,90,HAPPY,"
+        query, fulfillment, intent = detect_intent_stream(project_id, session_id, language_code)
+        print(intent);
+        if intent == "Overwhelmed":
+            order = "OVERWHELMED,"
             ser.write(order.encode())
-            break
+
+        #if query == "hello":
+        #    texttospeech(fulfillment, language_code)
+        #    order = "90,90,HAPPY,"
+        #    ser.write(order.encode())
+        #    break
         
         
 
