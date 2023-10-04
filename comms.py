@@ -116,9 +116,21 @@ try:
     while True:
         query, fulfillment, intent = detect_intent_stream(project_id, session_id, language_code)
         print(intent);
-        if intent == "Overwhelmed":
-            order = "OVERWHELMED,"
-            ser.write(order.encode())
+
+        match intent:
+            case "Overwhelmed":
+                print("a")
+                order = "123,123,OVERWHELMED,"
+                ser.write(order.encode())
+            case "Mood":
+                print("b")
+                order = "123,123,MOOD,"
+                ser.write(order.encode())
+            case "techno":
+                print("c")
+                order = "123,123,TECHNO,"
+                ser.write(order.encode())
+        
 
         #if query == "hello":
         #    texttospeech(fulfillment, language_code)
