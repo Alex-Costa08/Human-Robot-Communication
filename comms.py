@@ -114,9 +114,9 @@ ser = serial.Serial('COM9', 115200)  # Replace 'COMX' with your Arduino's port
 
 try:
     while True:
+        #data = ser.readline().decode().strip()
+        #if data == "SENDING":
         query, fulfillment, intent = detect_intent_stream(project_id, session_id, language_code)
-        print(intent);
-
         match intent:
             case "Overwhelmed":
                 print("a")
@@ -130,13 +130,6 @@ try:
                 print("c")
                 order = "123,123,TECHNO,"
                 ser.write(order.encode())
-        
-
-        #if query == "hello":
-        #    texttospeech(fulfillment, language_code)
-        #    order = "90,90,HAPPY,"
-        #    ser.write(order.encode())
-        #    break
         
         
 

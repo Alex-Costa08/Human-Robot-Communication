@@ -16,7 +16,7 @@
 #define SERVO_PIN_2   7
 
 // And the rest
-SoftwareSerial mp3(8, 9);                     // The MP3 module is connected on pins 2 and 3
+SoftwareSerial mp3(2, 3);                     // The MP3 module is connected on pins 2 and 3
 Adafruit_NeoPixel pixels(NUMPIXELS, LED_PIN);
 
 int LED_BRIGHTNESS = 80;  // 0-255
@@ -27,14 +27,14 @@ bool face_detected = false;
 bool prev_touch_value = 0;
 
 enum Emotion {NEUTRAL, OVERWHELMED, LOVE, LISTENING, MOOD, EVANA};
-Emotion emotion = NEUTRAL;
+Emotion emotion = OVERWHELMED;
 
 Servo servo1, servo2;
-float servo1_pos = 90, servo2_pos = 90;
+float servo1_pos = 90, servo2_pos = 80;
 float servo1_target = 90, servo2_target = 90;
 float servo1_speed = 0, servo2_speed = 0;
 
-long timer1, timer2, timer3;
+long timer1, timer2, timer3, start_timer1, start_timer2;
 
 bool pc_connected = false;
 float servo1_target_pc = 90, servo2_target_pc = 90;
@@ -117,9 +117,6 @@ void setup() {
 
   SpecifyMusicPlay(1);            //Start the Song for Neutral State
 
-  PlayNext();
-
-
   // HuskyLens
   Wire.begin();
   while (!huskylens.begin(Wire)) {
@@ -133,7 +130,7 @@ void setup() {
   servo1.attach(SERVO_PIN_1);
   servo2.attach(SERVO_PIN_2);
   servo1.write(90);
-  servo2.write(60);
+  servo2.write(80);
 }
 
 void loop() {
@@ -149,10 +146,11 @@ void loop() {
     run_emotions();
   }
 
-  // Every 10 milliseconds, update the huskylens and touch sensor
+  // Every 10 milliseconds, update the huskylens
   if (millis() - timer2 >= 10){
     timer2 = millis();
-    communication();
+    //only uses the comms fucntion if it is not in IDLE or PROMOTING INTERACTION (LOVE)
+    if(emotion == LISTENING || emotion == OVERWHELMED || emotion == MOOD || emotion == EVANA){communication();} 
   }
 
 }
@@ -178,22 +176,33 @@ void face_counter(){
 
 //After we have all the sounds, we need to change the indexes of the function to play the correct ones!!!
 void state_switching(){
-  //right now it will never go to the LISTENING state bcs we are not using the sound.
+
+  //Assure that the sounds being played are the right ones!!!
+
   switch (emotion) {
     case  NEUTRAL:
-        if(face_count > 1){emotion = LOVE;  Serial.println("Neutral -> Love"); SpecifyMusicPlay(2); servo2_target = 120;}
+        if(face_count > 1){emotion = LOVE; SpecifyMusicPlay(2); servo2_target = 120; start_timer1 = millis();}
 
         break;
         
     case LOVE:
-        if(face_count < 2){emotion = NEUTRAL; Serial.println("Love -> Neutral"); SpecifyMusicPlay(1); servo2_target = 60;}
+        if(face_count < 2){emotion = NEUTRAL; SpecifyMusicPlay(1); servo2_target = 100;}
+        if((millis() - start_timer1) > 5000) {emotion = LISTENING; clearSerialBuffer();}  //we call the clean buffer function so it cleans everything that was said in the NEUTRAL/LOVE states
+
         break;
 
     case LISTENING:
-        //if(face_count < 2){emotion = NEUTRAL;SpecifyMusicPlay(1);}
+        if(face_count < 2){emotion = NEUTRAL;SpecifyMusicPlay(1);servo2_target = 100;}
+        //the switch to MOOD and OVERWHELMED is done in comunication()
+
         break;
 
     case OVERWHELMED:
+      //if((millis() - start_timer2) > 3000) emotion = LISTENING;
+      break;
+
+    case MOOD:
+      if((millis() - start_timer2) > 3000)  emotion = LISTENING;
       break;
 
   }
@@ -252,17 +261,19 @@ void run_emotions(){
         servo2_target = 90.0 + float(face.yCenter - 120) / 240.00 * 50.00;
       }*/
 
-      if (millis() % 10000 < 2000){servo1_target = 90;servo2_target = 80;}
+      if (millis() % 10000 < 2000){servo1_target = 90;servo2_target = 100;}
       else if (millis() % 10000 < 3000) servo1_target = 120;
       else if (millis() % 10000 < 4000) servo1_target = 50;
       else servo1_target = 90;
 
       break;
+
     case OVERWHELMED:
+      //change the movement so the servo1 is faster than the servo2!
       display_eyes(overwhelmed, 0, 1);
-      if (millis() % 600 < 200){servo1_target = 90;servo2_target = 80;}
-      else if (millis() % 600 < 400) {servo1_target = 110;servo2_target = 100;}
-      else {servo1_target = 70;servo2_target = 80;}
+      if (millis() % 1500 < 500){servo1_target = 120;servo2_target = 100;}
+      else if (millis() % 1500 < 1000) {servo1_target = 90;servo2_target = 120;}
+      else {servo1_target = 40;servo2_target = 100;}
 
       currentMillis = millis();
       if (currentMillis - previousMusicTime >= 3000) {
@@ -272,12 +283,18 @@ void run_emotions(){
 
       break;
       
+    
     case LOVE:
       if (millis() % 2500 < 150) display_eyes(blink1, 150, 2);
       else if (millis() % 2500 < 300) display_eyes(blink2, 150, 2);
       else if (millis() % 2500 < 450) display_eyes(blink1, 150, 2);
       else display_eyes(love, 150, 1);
       
+      if (millis() % 3500 < 800){servo1_target = 90;servo2_target = 120;}
+      else if (millis() % 3500 < 1300) servo1_target = 120;
+      else if (millis() % 3500 < 1800) servo1_target = 50;
+      else servo1_target = 90;
+
       break;
     
     case LISTENING:
@@ -285,6 +302,12 @@ void run_emotions(){
       else if (millis() % 5000 < 300) display_eyes(blink2, 85, 1);
       else if (millis() % 5000 < 450) display_eyes(blink1, 85, 1);
       else display_eyes(neutral, 85, 1);
+
+      if (millis() % 6000 < 500){servo1_target = 90;servo2_target = 150;}
+      else if (millis() % 6000 < 2500) servo1_target = 120;
+      else if (millis() % 6000 < 5000) servo1_target = 50;
+      else servo1_target = 90;
+
       break;
     case MOOD:
       if (millis() % 1000 < 150) display_eyes(blink1, 43, 1);
@@ -386,6 +409,11 @@ void move_servos(){
 void communication() {
   char val = ' ';
   String data = "";
+
+  //Serial.println("SENDING"); 
+  
+  //clearSerialBuffer();
+
   if (Serial.available()) {
     do {
       val = Serial.read();
@@ -394,16 +422,12 @@ void communication() {
     while ( val != -1);
   }
 
-  /*if (value == "NEUTRAL") emotion = NEUTRAL;
-  if (value == "OVERWHELMED") emotion = OVERWHELMED;
-  if (value == "LISTENING") emotion = LISTENING;
-  if(value == "LOVE") emotion = LOVE;*/
 
   // data is a string of what we received, we will split it into the different values
   // We receive multiple values from our PC as in "123,abc,123,"
   // We can then split this string and extract the values out.
   if (data.length() > 1 && data.charAt(data.length() - 1) == ',') {
-    Serial.print(data);
+    //Serial.print(data);
     //pc_connected = true; // Once we get a message from the PC, we turn off the touch sensor and do everything with input from the PC
 
     String value;
@@ -414,10 +438,16 @@ void communication() {
       if (i == 0) servo1_target_pc = value.toInt();
       if (i == 1) servo2_target_pc = value.toInt();
       if(i == 2) {
-        if (value == "OVERWHELMED") emotion = OVERWHELMED;
-        if (value == "MOOD") {emotion = MOOD;servo2_target = 140;}
+        if (value == "OVERWHELMED") {emotion = OVERWHELMED; start_timer2 = millis();}
+        if (value == "MOOD") {emotion = MOOD;servo2_target = 140; start_timer2 = millis();}
         if (value == "TECHNO") {emotion = EVANA;playing=false;}
         }
     }
+  }
+}
+
+void clearSerialBuffer() {
+  while (Serial.available() > 0) {
+    char incomingData = Serial.read(); // Read and discard data from the buffer 
   }
 }
