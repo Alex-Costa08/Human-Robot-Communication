@@ -19,7 +19,7 @@
 SoftwareSerial mp3(2, 3);                     // The MP3 module is connected on pins 2 and 3
 Adafruit_NeoPixel pixels(NUMPIXELS, LED_PIN);
 
-int LED_BRIGHTNESS = 80;  // 0-255
+int LED_BRIGHTNESS = 10;  // 0-255
 
 HUSKYLENS huskylens;
 HUSKYLENSResult face;
@@ -27,7 +27,7 @@ bool face_detected = false;
 bool prev_touch_value = 0;
 
 enum Emotion {NEUTRAL, OVERWHELMED, LOVE, LISTENING, MOOD, EVANA};
-Emotion emotion = OVERWHELMED;
+Emotion emotion = NEUTRAL;
 
 Servo servo1, servo2;
 float servo1_pos = 90, servo2_pos = 80;
@@ -49,6 +49,16 @@ bool playing = false;
 // --------------------------------------------------------------------------------- //
 
 byte neutral[] = {
+  B0000,
+  B00000,
+  B000000,
+  B0000000,
+  B000000,
+  B11111,
+  B1111
+};
+
+byte listening[] = {
   B0000,
   B01110,
   B011110,
@@ -98,6 +108,35 @@ byte overwhelmed[] = {
   B0000
 };
 
+byte mood[] = {
+  B0000,
+  B00000,
+  B000000,
+  B0000110,
+  B001111,
+  B01111,
+  B1111
+};
+
+byte mood_blink1[] = {
+  B0000,
+  B00000,
+  B000000,
+  B0000010,
+  B000011,
+  B01111,
+  B1111
+};
+
+byte mood_blink2[] = {
+  B0000,
+  B00000,
+  B000000,
+  B0000000,
+  B000001,
+  B00001,
+  B0111
+};
 
 void setup() {
   // put your setup code here, to run once:
@@ -149,7 +188,7 @@ void loop() {
   // Every 10 milliseconds, update the huskylens
   if (millis() - timer2 >= 10){
     timer2 = millis();
-    //only uses the comms fucntion if it is not in IDLE or PROMOTING INTERACTION (LOVE)
+    //only uses the comms fucntion if it is not in IDLE or PROMOTING INTERACTION (LOVE), in other words it doesn't listen to the users in those states
     if(emotion == LISTENING || emotion == OVERWHELMED || emotion == MOOD || emotion == EVANA){communication();} 
   }
 
@@ -181,28 +220,28 @@ void state_switching(){
 
   switch (emotion) {
     case  NEUTRAL:
-        if(face_count > 1){emotion = LOVE; SpecifyMusicPlay(2); servo2_target = 120; start_timer1 = millis();}
+        if(face_count > 1){emotion = LOVE; SpecifyMusicPlay(2); servo2_target = 120; start_timer1 = millis();LED_BRIGHTNESS = 80;}
 
         break;
         
     case LOVE:
-        if(face_count < 2){emotion = NEUTRAL; SpecifyMusicPlay(1); servo2_target = 100;}
+        if(face_count < 2){emotion = NEUTRAL; SpecifyMusicPlay(1); servo2_target = 100;LED_BRIGHTNESS = 10;}
         if((millis() - start_timer1) > 5000) {emotion = LISTENING; clearSerialBuffer();}  //we call the clean buffer function so it cleans everything that was said in the NEUTRAL/LOVE states
 
         break;
 
     case LISTENING:
-        if(face_count < 2){emotion = NEUTRAL;SpecifyMusicPlay(1);servo2_target = 100;}
+        if(face_count < 2){emotion = NEUTRAL;SpecifyMusicPlay(1);servo2_target = 100;LED_BRIGHTNESS = 10;}
         //the switch to MOOD and OVERWHELMED is done in comunication()
 
         break;
 
     case OVERWHELMED:
-      //if((millis() - start_timer2) > 3000) emotion = LISTENING;
+      if((millis() - start_timer2) > 8000) emotion = LISTENING;
       break;
 
     case MOOD:
-      if((millis() - start_timer2) > 3000)  emotion = LISTENING;
+      if((millis() - start_timer2) > 8000)  emotion = LISTENING;
       break;
 
   }
@@ -246,15 +285,18 @@ void display_eye(byte arr[], int hue, bool left) {
   }
 }
 
+
+
 void run_emotions(){
   pixels.clear();  
 
   switch (emotion) {
     case NEUTRAL:
-      if (millis() % 5000 < 150) display_eyes(blink1, 43, 1);
+      display_eyes(neutral, 110, 1);
+      /*if (millis() % 5000 < 150) display_eyes(blink1, 43, 1);
       else if (millis() % 5000 < 300) display_eyes(blink2, 43, 1);
       else if (millis() % 5000 < 450) display_eyes(blink1, 43, 1);
-      else display_eyes(neutral, 43, 1);
+      else display_eyes(neutral, 43, 1);*/
 
       /*if (face_detected) {
         servo1_target = 90.0 + float(face.xCenter - 160) / 320.00 * -50.00;
@@ -271,9 +313,9 @@ void run_emotions(){
     case OVERWHELMED:
       //change the movement so the servo1 is faster than the servo2!
       display_eyes(overwhelmed, 0, 1);
-      if (millis() % 1500 < 500){servo1_target = 120;servo2_target = 100;}
-      else if (millis() % 1500 < 1000) {servo1_target = 90;servo2_target = 120;}
-      else {servo1_target = 40;servo2_target = 100;}
+      if (millis() % 1500 < 500){servo1_target = 120;servo2_target = 120;}
+      else if (millis() % 1500 < 1000) {servo1_target = 90;servo2_target = 140;}
+      else {servo1_target = 40;servo2_target = 120;}
 
       currentMillis = millis();
       if (currentMillis - previousMusicTime >= 3000) {
@@ -301,23 +343,31 @@ void run_emotions(){
       if (millis() % 5000 < 150) display_eyes(blink1, 85, 1);
       else if (millis() % 5000 < 300) display_eyes(blink2, 85, 1);
       else if (millis() % 5000 < 450) display_eyes(blink1, 85, 1);
-      else display_eyes(neutral, 85, 1);
+      else display_eyes(listening, 85, 1);
 
       if (millis() % 6000 < 500){servo1_target = 90;servo2_target = 150;}
-      else if (millis() % 6000 < 2500) servo1_target = 120;
-      else if (millis() % 6000 < 5000) servo1_target = 50;
+      else if (millis() % 6000 < 2500) {servo1_target = 120;servo2_target = 160;}
+      else if (millis() % 6000 < 4500) {servo2_target = 150;}
+      else if (millis() % 6000 < 5000) {servo1_target = 50;servo2_target = 160;}
       else servo1_target = 90;
 
       break;
     case MOOD:
-      if (millis() % 1000 < 150) display_eyes(blink1, 43, 1);
-      else if (millis() % 1000 < 300) display_eyes(blink2, 43, 1);
-      else if (millis() % 1000 < 450) display_eyes(blink1, 43, 1);
-      else display_eyes(love, 43, 1);
+      if (millis() % 2000 < 150) display_eyes(mood_blink1, 100, 1);
+      else if (millis() % 2000 < 300) display_eyes(mood_blink2, 100, 1);
+      else if (millis() % 2000 < 450) display_eyes(mood_blink1, 100, 1);
+      else display_eyes(mood, 100, 1);
+      
 
-      if (millis() % 3000 < 750){servo1_target = 90;servo2_target = 140;}
+      /*if (millis() % 3000 < 750){servo1_target = 90;servo2_target = 140;}
       else if (millis() % 3000 < 1200) servo1_target = 120;
       else if (millis() % 3000 < 1700) servo1_target = 50;
+      else servo1_target = 90;*/
+
+      if (millis() % 6000 < 500){servo1_target = 90;servo2_target = 150;}
+      else if (millis() % 6000 < 2500) {servo1_target = 120;servo2_target = 160;}
+      else if (millis() % 6000 < 4500) {servo2_target = 150;}
+      else if (millis() % 6000 < 5000) {servo1_target = 50;servo2_target = 160;}
       else servo1_target = 90;
 
       currentMillis = millis();

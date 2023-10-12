@@ -111,11 +111,12 @@ language_code = "en-US"
 
 # Define the serial port and baud rate
 ser = serial.Serial('COM9', 115200)  # Replace 'COMX' with your Arduino's port
+ser.write('a'.encode())
+time.sleep(1)
 
 try:
     while True:
-        #data = ser.readline().decode().strip()
-        #if data == "SENDING":
+        
         query, fulfillment, intent = detect_intent_stream(project_id, session_id, language_code)
         match intent:
             case "Overwhelmed":
@@ -131,6 +132,8 @@ try:
                 order = "123,123,TECHNO,"
                 ser.write(order.encode())
         
+        #delay 1 second
+        time.sleep(1)
         
 
 except KeyboardInterrupt:
