@@ -27,7 +27,7 @@ bool face_detected = false;
 bool prev_touch_value = 0;
 
 enum Emotion {NEUTRAL, OVERWHELMED, LISTENING, MOOD, EVANA};
-Emotion emotion = LISTENING;
+Emotion emotion = OVERWHELMED;
 
 Servo servo1, servo2;
 float servo1_pos = 90, servo2_pos = 80;
@@ -224,7 +224,7 @@ void state_switching(){
     case  NEUTRAL:
         speedX = 1.0;
         speedY = 1.0;
-        if(face_count > 1){emotion = LISTENING; SpecifyMusicPlay(2); servo2_target = 120; start_timer1 = millis();LED_BRIGHTNESS = 80;}
+        //if(face_count > 1){emotion = LISTENING; SpecifyMusicPlay(2); servo2_target = 120; start_timer1 = millis();LED_BRIGHTNESS = 80;}
 
         break;
 
@@ -236,11 +236,13 @@ void state_switching(){
 
     case OVERWHELMED:
       speedX = 2.0;
-      speedY = 3.0;
+      speedY = 2.0;
       //if((millis() - start_timer2) > 8000) emotion = LISTENING;
       break;
 
     case MOOD:
+      speedX = 2.0;
+      speedY = 1.0;
       //if((millis() - start_timer2) > 8000)  emotion = LISTENING;
       break;
 
@@ -279,7 +281,7 @@ void display_eye(byte arr[], int hue, bool left) {
   for (int i = 0; i < NUM_COLUMNS; i++) {
     for (int j = 0; j < rows[i]; j++) {
       int brightness = LED_BRIGHTNESS * bitRead(arr[i], (left) ? rows[i] - 1 - j : j);
-      pixels.setPixelColor(index, pixels.ColorHSV(hue * 256, 255, brightness));
+      pixels.setPixelColor(index, pixels.ColorHSV(hue , 255, brightness));
       index ++;
     }
   }
@@ -292,26 +294,27 @@ void run_emotions(){
 
   switch (emotion) {
     case NEUTRAL:
-      display_eyes(neutral, 110, 1);
+      display_eyes(neutral, 44750, 1);
 
       /*if (face_detected) {
         servo1_target = 90.0 + float(face.xCenter - 160) / 320.00 * -50.00;
         servo2_target = 90.0 + float(face.yCenter - 120) / 240.00 * 50.00;
       }*/
 
-      if (millis() % 10000 < 2000){servo1_target = 90;servo2_target = 100;}
-      else if (millis() % 10000 < 4000) servo1_target = 120;
-      else if (millis() % 10000 < 6000) servo1_target = 50;
-      else servo1_target = 90;
+      if (millis() % 5000 < 3000){servo2_target = 90;}
+      else  servo2_target = 105;
 
       break;
 
     case OVERWHELMED:
       //change the movement so the servo1 is faster than the servo2!
       display_eyes(overwhelmed, 0, 1);
-      if (millis() % 3000 < 1000){servo1_target = 150;servo2_target = 90;}
-      else if (millis() % 3000 < 2000) {servo1_target = 90;servo2_target = 100;}
-      else {servo1_target = 40;servo2_target = 90;}
+      if (millis() % 4000 < 750){servo1_target = 140;servo2_target = 110;}
+      else if (millis() % 4000 < 1250){servo1_target = 140;servo2_target = 130;}
+      else if (millis() % 4000 < 1850) {servo1_target = 90;servo2_target = 110;}
+      else if (millis() % 4000 < 2500) {servo1_target = 90;servo2_target = 130;}
+      else if (millis() % 4000 < 3250) {servo1_target = 30;servo2_target = 110;}
+      else {servo1_target = 30;servo2_target = 130;}
 
       currentMillis = millis();
       if (currentMillis - previousMusicTime >= 3000) {
@@ -322,24 +325,27 @@ void run_emotions(){
       break;
     
     case LISTENING:
-      if (millis() % 5000 < 150) display_eyes(blink1, 85, 1);
-      else if (millis() % 5000 < 300) display_eyes(blink2, 85, 1);
-      else if (millis() % 5000 < 450) display_eyes(blink1, 85, 1);
-      else display_eyes(listening, 85, 1);
-
-      if (millis() % 12000 < 500){servo1_target = 90;servo2_target = 120;}
-      else if (millis() % 12000 < 3500) {servo1_target = 160;servo2_target = 160;speedX=5;SpecifyMusicPlay(13);}
-      else if (millis() % 12000 < 4000) {servo2_target = 120;}
-      else if (millis() % 12000 < 8000) {servo1_target = 20;servo2_target = 160;SpecifyMusicPlay(13);}
-      else {servo1_target = 90;speedX=1;servo2_target = 120;}
+      if (millis() % 5000 < 150) display_eyes(blink1, 21760, 1);
+      else if (millis() % 5000 < 300) display_eyes(blink2, 21760, 1);
+      else if (millis() % 5000 < 450) display_eyes(blink1, 21760, 1);
+      else display_eyes(listening, 21760, 1);
+      
+      if (millis() % 11000 < 500){servo1_target = 90;servo2_target = 120;speedX=1;}
+      else if (millis() % 11000 < 1500) {servo1_target = 130;speedX=2;}
+      else if (millis() % 11000 < 4500) {servo2_target = 160;SpecifyMusicPlay(13);}
+      else if (millis() % 11000 < 5500) {servo2_target = 120;}
+      else if (millis() % 11000 < 6000) {servo1_target = 40;}
+      else if (millis() % 11000 < 9000) {servo2_target = 160;SpecifyMusicPlay(13);}
+      else if (millis() % 11000 < 9500) {servo2_target = 120;}
+      else {servo1_target = 90;speedX=1;}
 
       break;
 
     case MOOD:
-      if (millis() % 2000 < 150) display_eyes(mood_blink1, 100, 1);
-      else if (millis() % 2000 < 300) display_eyes(mood_blink2, 100, 1);
-      else if (millis() % 2000 < 450) display_eyes(mood_blink1, 100, 1);
-      else display_eyes(mood, 100, 1);
+      if (millis() % 2000 < 150) display_eyes(mood_blink1, 25600, 1);
+      else if (millis() % 2000 < 300) display_eyes(mood_blink2, 25600, 1);
+      else if (millis() % 2000 < 450) display_eyes(mood_blink1, 25600, 1);
+      else display_eyes(mood, 25600, 1);
       
 
       /*if (millis() % 3000 < 750){servo1_target = 90;servo2_target = 140;}
@@ -347,10 +353,10 @@ void run_emotions(){
       else if (millis() % 3000 < 1700) servo1_target = 50;
       else servo1_target = 90;*/
 
-      if (millis() % 6000 < 500){servo1_target = 90;servo2_target = 150;}
-      else if (millis() % 6000 < 2500) {servo1_target = 120;servo2_target = 160;}
-      else if (millis() % 6000 < 4500) {servo2_target = 150;}
-      else if (millis() % 6000 < 5000) {servo1_target = 50;servo2_target = 160;}
+      if (millis() % 10000 < 1000){servo1_target = 90;servo2_target = 140;}
+      else if (millis() % 10000 < 3000) {servo1_target = 120;servo2_target = 160;}
+      else if (millis() % 10000 < 6000) {servo2_target = 140;}
+      else if (millis() % 10000 < 8000) {servo1_target = 50;servo2_target = 160;}
       else servo1_target = 90;
 
       currentMillis = millis();
@@ -423,11 +429,13 @@ void move_servos(float x, float y){
   float servo1_target_ = (pc_connected) ? servo1_target_pc : servo1_target;
   float servo2_target_ = (pc_connected) ? servo2_target_pc : servo2_target;
 
+
   if (abs(servo1_target_ - servo1_pos) < 1) {
     servo1.write(servo1_target_);
     servo1_pos = servo1_target_;
   } else {
-    servo1_speed = constrain(constrain(servo1_target_ - servo1_pos, servo1_speed - 0.1, servo1_speed + 0.1), -x, x);
+    servo1_speed = constrain(servo1_target_ - servo1_pos, -x, x);       //constrain(servo1_target_ - servo1_pos, servo1_speed - 0.1, servo1_speed + 0.1), -x, x);
+
     servo1_pos += servo1_speed;
     servo1.write(servo1_pos);
   }
@@ -436,7 +444,7 @@ void move_servos(float x, float y){
     servo2.write(servo2_target_);
     servo2_pos = servo2_target_;
   } else {
-    servo2_speed = constrain(constrain(servo2_target_ - servo2_pos, servo2_speed - 0.1, servo2_speed + 0.1), -y, y);
+    servo2_speed = constrain(servo2_target_ - servo2_pos, -y, y);
     servo2_pos += servo2_speed;
     servo2.write(servo2_pos);
   }

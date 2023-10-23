@@ -123,7 +123,7 @@ try:
                 print("a")
                 order = "123,123,OVERWHELMED,"
                 ser.write(order.encode())
-            case "Mood":
+            case "Happy":
                 print("b")
                 order = "123,123,MOOD,"
                 ser.write(order.encode())
