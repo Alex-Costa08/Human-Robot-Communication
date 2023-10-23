@@ -26,8 +26,8 @@ HUSKYLENSResult face;
 bool face_detected = false;
 bool prev_touch_value = 0;
 
-enum Emotion {NEUTRAL, OVERWHELMED, LOVE, LISTENING, MOOD, EVANA};
-Emotion emotion = NEUTRAL;
+enum Emotion {NEUTRAL, OVERWHELMED, LISTENING, MOOD, EVANA};
+Emotion emotion = LISTENING;
 
 Servo servo1, servo2;
 float servo1_pos = 90, servo2_pos = 80;
@@ -44,6 +44,8 @@ int face_count=0, face_temp = 0, t_counter = 0;
 unsigned long previousMusicTime = 0;
 unsigned long currentMillis;
 bool playing = false;
+
+float speedX = 1, speedY = 1;
 // --------------------------------------------------------------------------------- //
 // ---------------------------------- EYE PATTERNS --------------------------------- //
 // --------------------------------------------------------------------------------- //
@@ -109,33 +111,33 @@ byte overwhelmed[] = {
 };
 
 byte mood[] = {
-  B0000,
-  B00000,
+  B1111,
+  B11111,
+  B111111,
+  B1100011,
   B000000,
-  B0000110,
-  B001111,
-  B01111,
-  B1111
+  B00000,
+  B0000
 };
 
 byte mood_blink1[] = {
   B0000,
-  B00000,
+  B01110,
+  B011110,
+  B0100010,
   B000000,
-  B0000010,
-  B000011,
-  B01111,
-  B1111
+  B00000,
+  B0000
 };
 
 byte mood_blink2[] = {
   B0000,
   B00000,
-  B000000,
+  B001100,
   B0000000,
-  B000001,
-  B00001,
-  B0111
+  B000000,
+  B00000,
+  B0000
 };
 
 void setup() {
@@ -177,7 +179,7 @@ void loop() {
   // Ever 20 milliseconds, update the servos
   if (millis() - timer1 >= 20){
     timer1 = millis();
-    move_servos();
+    move_servos(speedX, speedY);
     face_temp = husky_lens();
     face_counter();
     state_switching();
@@ -220,28 +222,26 @@ void state_switching(){
 
   switch (emotion) {
     case  NEUTRAL:
-        if(face_count > 1){emotion = LOVE; SpecifyMusicPlay(2); servo2_target = 120; start_timer1 = millis();LED_BRIGHTNESS = 80;}
-
-        break;
-        
-    case LOVE:
-        if(face_count < 2){emotion = NEUTRAL; SpecifyMusicPlay(1); servo2_target = 100;LED_BRIGHTNESS = 10;}
-        if((millis() - start_timer1) > 5000) {emotion = LISTENING; clearSerialBuffer();}  //we call the clean buffer function so it cleans everything that was said in the NEUTRAL/LOVE states
+        speedX = 1.0;
+        speedY = 1.0;
+        if(face_count > 1){emotion = LISTENING; SpecifyMusicPlay(2); servo2_target = 120; start_timer1 = millis();LED_BRIGHTNESS = 80;}
 
         break;
 
     case LISTENING:
-        if(face_count < 2){emotion = NEUTRAL;SpecifyMusicPlay(1);servo2_target = 100;LED_BRIGHTNESS = 10;}
+        //if(face_count < 2){emotion = NEUTRAL;SpecifyMusicPlay(1);servo2_target = 100;LED_BRIGHTNESS = 10;}
         //the switch to MOOD and OVERWHELMED is done in comunication()
 
         break;
 
     case OVERWHELMED:
-      if((millis() - start_timer2) > 8000) emotion = LISTENING;
+      speedX = 2.0;
+      speedY = 3.0;
+      //if((millis() - start_timer2) > 8000) emotion = LISTENING;
       break;
 
     case MOOD:
-      if((millis() - start_timer2) > 8000)  emotion = LISTENING;
+      //if((millis() - start_timer2) > 8000)  emotion = LISTENING;
       break;
 
   }
@@ -293,10 +293,6 @@ void run_emotions(){
   switch (emotion) {
     case NEUTRAL:
       display_eyes(neutral, 110, 1);
-      /*if (millis() % 5000 < 150) display_eyes(blink1, 43, 1);
-      else if (millis() % 5000 < 300) display_eyes(blink2, 43, 1);
-      else if (millis() % 5000 < 450) display_eyes(blink1, 43, 1);
-      else display_eyes(neutral, 43, 1);*/
 
       /*if (face_detected) {
         servo1_target = 90.0 + float(face.xCenter - 160) / 320.00 * -50.00;
@@ -304,8 +300,8 @@ void run_emotions(){
       }*/
 
       if (millis() % 10000 < 2000){servo1_target = 90;servo2_target = 100;}
-      else if (millis() % 10000 < 3000) servo1_target = 120;
-      else if (millis() % 10000 < 4000) servo1_target = 50;
+      else if (millis() % 10000 < 4000) servo1_target = 120;
+      else if (millis() % 10000 < 6000) servo1_target = 50;
       else servo1_target = 90;
 
       break;
@@ -313,29 +309,15 @@ void run_emotions(){
     case OVERWHELMED:
       //change the movement so the servo1 is faster than the servo2!
       display_eyes(overwhelmed, 0, 1);
-      if (millis() % 1500 < 500){servo1_target = 120;servo2_target = 120;}
-      else if (millis() % 1500 < 1000) {servo1_target = 90;servo2_target = 140;}
-      else {servo1_target = 40;servo2_target = 120;}
+      if (millis() % 3000 < 1000){servo1_target = 150;servo2_target = 90;}
+      else if (millis() % 3000 < 2000) {servo1_target = 90;servo2_target = 100;}
+      else {servo1_target = 40;servo2_target = 90;}
 
       currentMillis = millis();
       if (currentMillis - previousMusicTime >= 3000) {
         SpecifyMusicPlay(8);    
         previousMusicTime = currentMillis;  // Save the current time as the new previous time
       }
-
-      break;
-      
-    
-    case LOVE:
-      if (millis() % 2500 < 150) display_eyes(blink1, 150, 2);
-      else if (millis() % 2500 < 300) display_eyes(blink2, 150, 2);
-      else if (millis() % 2500 < 450) display_eyes(blink1, 150, 2);
-      else display_eyes(love, 150, 1);
-      
-      if (millis() % 3500 < 800){servo1_target = 90;servo2_target = 120;}
-      else if (millis() % 3500 < 1300) servo1_target = 120;
-      else if (millis() % 3500 < 1800) servo1_target = 50;
-      else servo1_target = 90;
 
       break;
     
@@ -345,13 +327,14 @@ void run_emotions(){
       else if (millis() % 5000 < 450) display_eyes(blink1, 85, 1);
       else display_eyes(listening, 85, 1);
 
-      if (millis() % 6000 < 500){servo1_target = 90;servo2_target = 150;}
-      else if (millis() % 6000 < 2500) {servo1_target = 120;servo2_target = 160;}
-      else if (millis() % 6000 < 4500) {servo2_target = 150;}
-      else if (millis() % 6000 < 5000) {servo1_target = 50;servo2_target = 160;}
-      else servo1_target = 90;
+      if (millis() % 12000 < 500){servo1_target = 90;servo2_target = 120;}
+      else if (millis() % 12000 < 3500) {servo1_target = 160;servo2_target = 160;speedX=5;SpecifyMusicPlay(13);}
+      else if (millis() % 12000 < 4000) {servo2_target = 120;}
+      else if (millis() % 12000 < 8000) {servo1_target = 20;servo2_target = 160;SpecifyMusicPlay(13);}
+      else {servo1_target = 90;speedX=1;servo2_target = 120;}
 
       break;
+
     case MOOD:
       if (millis() % 2000 < 150) display_eyes(mood_blink1, 100, 1);
       else if (millis() % 2000 < 300) display_eyes(mood_blink2, 100, 1);
@@ -378,12 +361,19 @@ void run_emotions(){
 
 
       break;
+    
     case EVANA:
       display_eyes(overwhelmed, 175, 1);
       if(!playing){
         SpecifyMusicPlay(12); 
         playing = true;
       }
+
+      if (millis() % 6000 < 500){servo1_target = 90;servo2_target = 150;}
+      else if (millis() % 6000 < 2500) {servo1_target = 120;servo2_target = 160;}
+      else if (millis() % 6000 < 4500) {servo2_target = 150;}
+      else if (millis() % 6000 < 5000) {servo1_target = 50;servo2_target = 160;}
+      else servo1_target = 90;
       
       break;
 
@@ -426,7 +416,7 @@ int husky_lens() {
 // --------------------------------------------------------------------------------- //
 // ---------------------------------- SERVO MOTORS --------------------------------- //
 // --------------------------------------------------------------------------------- //
-void move_servos(){
+void move_servos(float x, float y){
   // We apply some smoothing to the servos and limit the speed
   // We do this because abrubt movements cause a big spike in current draw
   // If we are connected to the PC, we use the PC angles. Otherwise we use the angles from the Arduino
@@ -437,7 +427,7 @@ void move_servos(){
     servo1.write(servo1_target_);
     servo1_pos = servo1_target_;
   } else {
-    servo1_speed = constrain(constrain(servo1_target_ - servo1_pos, servo1_speed - 0.1, servo1_speed + 0.1), -1.0, 1.0);
+    servo1_speed = constrain(constrain(servo1_target_ - servo1_pos, servo1_speed - 0.1, servo1_speed + 0.1), -x, x);
     servo1_pos += servo1_speed;
     servo1.write(servo1_pos);
   }
@@ -446,7 +436,7 @@ void move_servos(){
     servo2.write(servo2_target_);
     servo2_pos = servo2_target_;
   } else {
-    servo2_speed = constrain(constrain(servo2_target_ - servo2_pos, servo2_speed - 0.1, servo2_speed + 0.1), -1.0, 1.0);
+    servo2_speed = constrain(constrain(servo2_target_ - servo2_pos, servo2_speed - 0.1, servo2_speed + 0.1), -y, y);
     servo2_pos += servo2_speed;
     servo2.write(servo2_pos);
   }
